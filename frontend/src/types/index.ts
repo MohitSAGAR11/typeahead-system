@@ -21,3 +21,16 @@ export interface TrendingResponse {
   results: TrendingItem[];
 }
 export type RankingMode = 'basic' | 'enhanced';
+export interface StatsSnapshot {
+  cacheHitRate: string;
+  cacheMissRate: string;
+  cacheHits: number;
+  cacheMisses: number;
+  avgLatency: string;
+  p95Latency: string;
+  dbReads: number;
+  dbWrites: number;
+  batchFlushCount: number;
+  estimatedWritesSaved: number;
+  uptime: string;
+}

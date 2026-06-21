@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../services/api';
 import { useSuggestions } from '../../hooks/useSuggestions';
+import { useStats } from '../../hooks/useStats';
 import { RankingMode, TrendingItem } from '../../types';
 
 export default function SearchApp() {
@@ -13,6 +14,7 @@ export default function SearchApp() {
   const [searchMsg, setSearchMsg] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const { suggestions, loading, error } = useSuggestions(query, rankingMode);
+  const stats = useStats(5000);
 
   const loadTrending = useCallback(() => {
     api.trending(rankingMode).then((r) => setTrending(r.results)).catch(() => {});
@@ -63,6 +65,37 @@ export default function SearchApp() {
 
   return (
     <div className="app-shell">
+      {stats && (
+        <div className="metrics-bar" aria-label="Live system metrics">
+          <div className="metrics-bar-inner">
+            <span className="metrics-pill metrics-pill--green">
+              <span className="metrics-dot" />
+              <span className="metrics-label">Cache Hit</span>
+              <span className="metrics-value">{stats.cacheHitRate}</span>
+            </span>
+            <span className="metrics-divider" />
+            <span className="metrics-pill">
+              <span className="metrics-label">Avg Latency</span>
+              <span className="metrics-value metrics-value--amber">{stats.avgLatency}</span>
+            </span>
+            <span className="metrics-divider" />
+            <span className="metrics-pill">
+              <span className="metrics-label">P95</span>
+              <span className="metrics-value metrics-value--amber">{stats.p95Latency}</span>
+            </span>
+            <span className="metrics-divider" />
+            <span className="metrics-pill">
+              <span className="metrics-label">Writes Saved</span>
+              <span className="metrics-value metrics-value--plum">{stats.estimatedWritesSaved.toLocaleString()}</span>
+            </span>
+            <span className="metrics-divider" />
+            <span className="metrics-pill">
+              <span className="metrics-label">Uptime</span>
+              <span className="metrics-value">{stats.uptime}</span>
+            </span>
+          </div>
+        </div>
+      )}
       <main className="app-main" id="main-content">
         <div className="search-section">
           <div className="search-logo-container">

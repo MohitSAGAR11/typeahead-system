@@ -1,4 +1,4 @@
-import { SuggestResponse, TrendingResponse, RankingMode } from '../types';
+import { SuggestResponse, TrendingResponse, RankingMode, StatsSnapshot } from '../types';
 const BASE = '/api';
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
@@ -21,4 +21,6 @@ export const api = {
     post<{ message: string }>('/search', { query }),
   trending: (mode: RankingMode = 'enhanced') =>
     get<TrendingResponse>(`/trending?mode=${mode}`),
+  stats: () =>
+    get<StatsSnapshot>('/stats'),
 };
