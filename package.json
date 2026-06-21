@@ -1,0 +1,18 @@
+{
+  "name": "search-typeahead",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix services && npm install --prefix frontend",
+    "dev:backend": "npm run dev --prefix services",
+    "dev:suggestion": "npm run start:suggestion --prefix services",
+    "dev:search": "npm run start:search --prefix services",
+    "dev:batch-writer": "npm run start:batch-writer --prefix services",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "test": "npm test --prefix services",
+    "db:migrate": "npm exec --prefix services -- ts-node src/database/migrate.ts",
+    "db:seed": "npm exec --prefix services -- ts-node src/database/seed.ts",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  }
+}

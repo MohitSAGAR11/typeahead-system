@@ -1,0 +1,182 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+    container_name: typeahead-frontend
+    environment:
+      VITE_API_PROXY_TARGET: http://api-gateway:8080
+    ports:
+      - "5173:5173"
+    depends_on:
+      api-gateway:
+        condition: service_started
+    restart: unless-stopped
+
+  api-gateway:
+    image: nginx:1.27-alpine
+    container_name: typeahead-api-gateway
+    volumes:
+      - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "3001:8080"
+    depends_on:
+      suggestion-service:
+        condition: service_started
+      search-service:
+        condition: service_started
+    restart: unless-stopped
+
+  db-init:
+    build:
+      context: ./services
+      dockerfile: Dockerfile.suggestion
+    container_name: typeahead-db-init
+    command: sh -c "npm run db:migrate && npm run db:seed -- --if-empty --limit 50000"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: search_typeahead
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  suggestion-service:
+    build:
+      context: ./services
+      dockerfile: Dockerfile.suggestion
+    image: search-typeahead-suggestion:local
+    container_name: typeahead-suggestion-service
+    environment:
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: search_typeahead
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      CACHE_MODE: redis
+      REDIS_URL: redis://redis:6379
+      CACHE_TTL_SECONDS: 300
+    ports:
+      - "3002:3001"
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  search-service:
+    build:
+      context: ./services
+      dockerfile: Dockerfile.search
+    image: search-typeahead-search:local
+    container_name: typeahead-search-service
+    environment:
+      PORT: 3002
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_SEARCH_TOPIC: search-events
+    ports:
+      - "3003:3002"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  batch-writer:
+    build:
+      context: ./services
+      dockerfile: Dockerfile.batch-writer
+    image: search-typeahead-batch-writer:local
+    container_name: typeahead-batch-writer
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: search_typeahead
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      CACHE_MODE: redis
+      REDIS_URL: redis://redis:6379
+      BATCH_SIZE: 100
+      BATCH_FLUSH_INTERVAL_MS: 10000
+      KAFKA_BROKERS: kafka:9092
+      KAFKA_SEARCH_TOPIC: search-events
+      KAFKA_GROUP_ID: batch-writer
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: typeahead-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    restart: unless-stopped
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: typeahead-kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    container_name: typeahead-postgres
+    environment:
+      POSTGRES_DB: search_typeahead
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d search_typeahead"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: typeahead-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

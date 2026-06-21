@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import { suggest } from '../controllers/suggestController';
+import { search } from '../controllers/searchController';
+import { cacheDebug, cacheRing } from '../controllers/cacheController';
+import { trending } from '../controllers/trendingController';
+import { stats, batchStatus, batchFlushNow } from '../controllers/statsController';
+const router = Router();
+router.get('/suggest', suggest);
+router.post('/search', search);
+router.get('/cache/debug', cacheDebug);
+router.get('/cache/ring', cacheRing);
+router.get('/trending', trending);
+router.get('/stats', stats);
+router.get('/batch/status', batchStatus);
+router.post('/batch/flush', batchFlushNow);
+export default router;
