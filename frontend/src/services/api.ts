@@ -1,4 +1,4 @@
-import { SuggestResponse, TrendingResponse, CacheDebugInfo, Stats, RankingMode } from '../types';
+import { SuggestResponse, TrendingResponse, RankingMode } from '../types';
 const BASE = '/api';
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`);
@@ -21,9 +21,4 @@ export const api = {
     post<{ message: string }>('/search', { query }),
   trending: (mode: RankingMode = 'enhanced') =>
     get<TrendingResponse>(`/trending?mode=${mode}`),
-  cacheDebug: (prefix: string) =>
-    get<CacheDebugInfo>(`/cache/debug?prefix=${encodeURIComponent(prefix)}`),
-  cacheRing: () => get<{ visualization: string; distribution: Record<string, number> }>('/cache/ring'),
-  stats: () => get<Stats>('/stats'),
-  batchFlush: () => post<{ message: string }>('/batch/flush', {}),
 };
