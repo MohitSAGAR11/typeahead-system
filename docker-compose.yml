@@ -31,7 +31,19 @@ services:
       context: ./services
       dockerfile: Dockerfile.suggestion
     container_name: typeahead-db-init
-    command: sh -c "npm run db:migrate && npm run db:seed -- --if-empty --limit 50000"
+    command: >
+      sh -c "
+        attempt=1;
+        until npm run db:migrate && npm run db:seed -- --if-empty --limit 50000; do
+          if [ \$$attempt -ge 3 ]; then
+            echo '[db-init] Failed after 3 attempts. Exiting.';
+            exit 1;
+          fi;
+          echo \"[db-init] Attempt \$$attempt failed. Retrying in 5s...\";
+          attempt=\$$((\$$attempt + 1));
+          sleep 5;
+        done
+      "
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
